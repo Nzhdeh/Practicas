@@ -1,27 +1,31 @@
 package com.nyeghiazaryan.eltiemporetrofit2kotlin.fragments
 
 import android.Manifest
+import android.app.Activity
 import android.content.Context
 import android.content.pm.PackageManager
-import android.location.Geocoder
-import android.location.Location
-import android.location.LocationListener
-import android.location.LocationManager
-import android.os.Build
+import android.location.*
 import android.os.Bundle
-import android.os.Looper
-import android.util.Log
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
+import android.widget.ListView
 import android.widget.TextView
 import android.widget.Toast
 import androidx.core.app.ActivityCompat
-import androidx.core.content.ContextCompat.getSystemService
-import androidx.core.content.PermissionChecker.checkCallingOrSelfPermission
 import androidx.fragment.app.Fragment
-import com.google.android.gms.location.*
 import com.nyeghiazaryan.eltiemporetrofit2kotlin.R
+import com.nyeghiazaryan.eltiemporetrofit2kotlin.adaptadores.AdaptadorListadoProvincias
+import com.nyeghiazaryan.eltiemporetrofit2kotlin.clases.Municipio
+import com.nyeghiazaryan.eltiemporetrofit2kotlin.clases.MunicipioItem
+import com.nyeghiazaryan.eltiemporetrofit2kotlin.clases.Provincia
+import com.nyeghiazaryan.eltiemporetrofit2kotlin.clases.ProvinciaX
+import com.nyeghiazaryan.eltiemporetrofit2kotlin.interfaces.ImplTemperaturaAPI
+import retrofit2.Call
+import retrofit2.Callback
+import retrofit2.Response
+import retrofit2.Retrofit
+import retrofit2.converter.gson.GsonConverterFactory
 import java.util.*
 
 
@@ -35,20 +39,34 @@ private const val ARG_PARAM2 = "param2"
  * Use the [LatitudLongitudFragment.newInstance] factory method to
  * create an instance of this fragment.
  */
-class LatitudLongitudFragment : Fragment() {
+class LatitudLongitudFragment : Fragment()
+{
     // TODO: Rename and change types of parameters
     private var param1: String? = null
     private var param2: String? = null
 
-    private lateinit var fusedLocationProviderClient: FusedLocationProviderClient
     private lateinit var locationManager: LocationManager
-    private lateinit var locationRequest: LocationRequest
-    private lateinit var lastLocation: Location
+    private var hasGps = false
+    private var hasNetwork = false
+    private var locationGps: Location? = null
 
-    private lateinit var longitud: TextView
-    private lateinit var latitud: TextView
+    private lateinit var retrofit: Retrofit
+    private lateinit var implTemperaturaAPI: ImplTemperaturaAPI
 
-    override fun onCreate(savedInstanceState: Bundle?) {
+    private lateinit var temperaturaMaxima: TextView
+    private lateinit var temperaturaMinima: TextView
+    private lateinit var tvCiudad: TextView
+    private lateinit var lvListadoTemperaturas: ListView
+    private lateinit var geocoder: Geocoder
+
+    private lateinit var listadoMunicipios: Municipio
+    private lateinit var listadoProvincias: List<ProvinciaX>
+
+    lateinit var adapter : AdaptadorListadoProvincias
+
+
+    override fun onCreate(savedInstanceState: Bundle?)
+    {
         super.onCreate(savedInstanceState)
         arguments?.let {
             param1 = it.getString(ARG_PARAM1)
@@ -58,179 +76,217 @@ class LatitudLongitudFragment : Fragment() {
 
     override fun onCreateView(
         inflater: LayoutInflater, container: ViewGroup?,
-        savedInstanceState: Bundle?): View?
+        savedInstanceState: Bundle?
+    ): View?
     {
         var view = inflater.inflate(R.layout.fragment_latitud_longitud, container, false)
 
-        longitud = view.findViewById(R.id.tvLongitud)
-        latitud = view.findViewById(R.id.tvLatitud)
+        temperaturaMaxima = view.findViewById(R.id.tvMaxTemp)
+        temperaturaMinima = view.findViewById(R.id.tvMinTemp)
+        tvCiudad = view.findViewById(R.id.tvCiudad)
+        lvListadoTemperaturas = view.findViewById(R.id.lvListadoTemperaturas)
 
-        if(ActivityCompat.checkSelfPermission(requireContext(),Manifest.permission.ACCESS_COARSE_LOCATION) == PackageManager.PERMISSION_GRANTED ||
-            ActivityCompat.checkSelfPermission(requireContext(),Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED)
-        {
-            ActivityCompat.requestPermissions(requireActivity(),
-                arrayOf(Manifest.permission.ACCESS_COARSE_LOCATION,Manifest.permission.ACCESS_FINE_LOCATION),1010)
-        }
-        locationManager = context?.getSystemService(Context.LOCATION_SERVICE) as LocationManager
-        lastLocation = locationManager.getLastKnownLocation(LocationManager.GPS_PROVIDER)!!
+        getLocation()
 
-        var locationListener = object:LocationListener
-        {
-            override fun onLocationChanged(location: Location)
-            {
-                reverseGeocode(location)
-            }
-        }
+//        obtenerListadoProvincias()
+        obtenerListadoMunicipios()
+//
+//        if (listadoMunicipios!= null)
+//        {
+//            obtenerListadoTemperaturas()
+//        }
 
-        locationManager.requestLocationUpdates(LocationManager.NETWORK_PROVIDER,1000,100.2f,locationListener)
 
         return view
     }
 
-    private fun reverseGeocode(location: Location)
+//    private fun obtenerListadoTemperaturas()
+//    {
+//        retrofit = Retrofit.Builder()
+//            .baseUrl("https://www.el-tiempo.net/api/json/v2/")
+//            .addConverterFactory(GsonConverterFactory.create())
+//            .build()
+//
+//        val service = retrofit.create<ImplTemperaturaAPI>(ImplTemperaturaAPI::class.java)
+//
+//        service.getProvincias(obtenerCodigoProvinciaPorPorMunicipio()).enqueue(object : Callback<Provincia>
+//        {
+//            override fun onResponse(call: Call<Provincia>, response: Response<Provincia>)
+//            {
+//                if (response.isSuccessful)
+//                {
+//                    val temperaturas = response.body()
+//                }
+//            }
+//
+//            override fun onFailure(call: Call<Provincia>, t: Throwable)
+//            {
+//                Toast.makeText(requireContext(), "error", Toast.LENGTH_LONG).show()
+//            }
+//
+//        })
+//    }
+
+//    private fun obtenerCodigoProvinciaPorPorMunicipio(): String
+//    {
+//        var idProvincia = "0"
+//
+//        for (item in listadoMunicipios)
+//        {
+//            if(item.nOMBRE.equals(tvCiudad.text.toString(), true))
+//            {
+//                idProvincia = item.cODPROV
+//            }
+//        }
+//
+//        return idProvincia
+//    }
+
+//    private fun obtenerListadoProvincias()
+//    {
+//        retrofit = Retrofit.Builder()
+//            .baseUrl("https://www.el-tiempo.net/api/json/v2/")
+//            .addConverterFactory(GsonConverterFactory.create())
+//            .build()
+//
+//        val service = retrofit.create(ImplTemperaturaAPI::class.java)
+//
+//        service.getProvincias().enqueue(object : Callback<Provincia>
+//        {
+//            override fun onResponse(call: Call<Provincia>, response: Response<Provincia>)
+//            {
+//                if (response.isSuccessful)
+//                {
+//                    val provincias = response.body()
+//
+////                    if (provincias != null) {
+////                        listadoProvincias = provincias.provincias
+////
+////                        adapter = AdaptadorListadoProvincias(requireContext(), listadoProvincias)
+////                        lvListadoProvincias.setAdapter(adapter)
+////                    }
+//                }
+//            }
+//
+//            override fun onFailure(call: Call<Provincia>, t: Throwable)
+//            {
+//                Toast.makeText(requireContext(), "error", Toast.LENGTH_LONG).show()
+//            }
+//        })
+//    }
+
+    private fun obtenerListadoMunicipios()
     {
-        var gc = Geocoder(requireContext(),Locale.getDefault())
+        retrofit = Retrofit.Builder()
+            .baseUrl("https://www.el-tiempo.net/api/json/v2/")
+            .addConverterFactory(GsonConverterFactory.create())
+            .build()
 
-        var adress = gc.getFromLocation(lastLocation.longitude,lastLocation.latitude,2)
-        var addr = adress.get(0)
-        longitud.setText(addr.getAddressLine(0)+""+addr.locality)
+        val service = retrofit.create(ImplTemperaturaAPI::class.java)
 
-        latitud.setText(addr.latitude.toString()+" "+addr.longitude.toString())
-    }
-
-
-    fun CheckPermission():Boolean
-    {
-        var res: Boolean = false
-        if(
-            ActivityCompat.checkSelfPermission(requireContext(),android.Manifest.permission.ACCESS_COARSE_LOCATION) == PackageManager.PERMISSION_GRANTED ||
-            ActivityCompat.checkSelfPermission(requireContext(),android.Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED
-        ){
-            res = true
-        }
-
-        return res
-
-    }
-
-    fun RequestPermission()
-    {
-        //this function will allows us to tell the user to requesut the necessary permsiion if they are not garented
-        ActivityCompat.requestPermissions(
-            requireActivity(),
-            arrayOf(android.Manifest.permission.ACCESS_COARSE_LOCATION,android.Manifest.permission.ACCESS_FINE_LOCATION),
-            1010
-        )
-    }
-
-    fun isLocationEnabled():Boolean
-    {
-        //this function will return to us the state of the location service
-        //if the gps or the network provider is enabled then it will return true otherwise it will return false
-        var locationManager = context?.getSystemService(Context.LOCATION_SERVICE) as LocationManager
-
-        return locationManager.isProviderEnabled(LocationManager.GPS_PROVIDER) || locationManager.isProviderEnabled(LocationManager.NETWORK_PROVIDER)
-    }
-
-    fun getLastLocation()
-    {
-        if(CheckPermission())
+        service.getMunicipios().enqueue(object : Callback<Municipio>
         {
-            if(isLocationEnabled())
+            override fun onResponse(call: Call<Municipio>, response: Response<Municipio>)
             {
+                if (response.isSuccessful)
+                {
+                    listadoMunicipios = response.body()!!
+                }
+                else
+                {
+                    Toast.makeText(requireContext(), "response error", Toast.LENGTH_LONG).show()
+                }
+            }
+
+            override fun onFailure(call: Call<Municipio>, t: Throwable) {
+                Toast.makeText(requireContext(), "Error", Toast.LENGTH_LONG).show()
+            }
+        })
+    }
+
+
+    private fun getLocation()
+    {
+        locationManager = context?.getSystemService(Context.LOCATION_SERVICE) as LocationManager
+        hasGps = locationManager.isProviderEnabled(LocationManager.GPS_PROVIDER)
+        hasNetwork = locationManager.isProviderEnabled(LocationManager.NETWORK_PROVIDER)
+        if (hasNetwork) {
+
+            if (hasGps) {
+                //Log.d("CodeAndroidLocation", "hasGps")
                 if (ActivityCompat.checkSelfPermission(
                         requireContext(),
-                        Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED && ActivityCompat.checkSelfPermission(
+                        Manifest.permission.ACCESS_FINE_LOCATION
+                    ) != PackageManager.PERMISSION_GRANTED && ActivityCompat.checkSelfPermission(
                         requireContext(),
-                        Manifest.permission.ACCESS_COARSE_LOCATION) != PackageManager.PERMISSION_GRANTED
+                        Manifest.permission.ACCESS_COARSE_LOCATION
+                    ) != PackageManager.PERMISSION_GRANTED
                 ) {
-                    // TODO: Consider calling
-                    //    ActivityCompat#requestPermissions
-                    // here to request the missing permissions, and then overriding
-                    //   public void onRequestPermissionsResult(int requestCode, String[] permissions,
-                    //                                          int[] grantResults)
-                    // to handle the case where the user grants the permission. See the documentation
-                    // for ActivityCompat#requestPermissions for more details.
-                    return
+                    ActivityCompat.requestPermissions(
+                        requireActivity(),
+                        arrayOf(
+                            Manifest.permission.ACCESS_COARSE_LOCATION,
+                            Manifest.permission.ACCESS_FINE_LOCATION
+                        ), 1010
+                    )
                 }
-                fusedLocationProviderClient.lastLocation.addOnCompleteListener { task->
+                locationManager.requestLocationUpdates(
+                    LocationManager.NETWORK_PROVIDER,
+                    1000,
+                    1F,
+                    object : LocationListener {
+                        override fun onLocationChanged(location: Location)
+                        {
+                            if (location != null) {
+                                locationGps = location
 
-                    var location:Location? = task.result
-                    if(location == null)
-                    {
-                        NewLocationData()
-                    }else
-                    {
-                        longitud.text = location.longitude.toString()
-                        latitud.text = location.latitude.toString() //getCityName(location.latitude,location.longitude)
-                    }
-                }
-            }else{
-                Toast.makeText(requireContext(),"Please Turn on Your device Location",Toast.LENGTH_SHORT).show()
+                                var lat = locationGps!!.latitude
+                                var lon = locationGps!!.longitude
+
+                                geocoder = Geocoder(
+                                    (context as Activity).baseContext,
+                                    Locale.getDefault()
+                                )
+
+
+                                var addresses: List<Address> = geocoder.getFromLocation(
+                                    lat,
+                                    lon,
+                                    1
+                                )
+
+//                                Toast.makeText(
+//                                    requireContext(),
+//                                    "tamaño: " + addresses.size.toString(),
+//                                    Toast.LENGTH_LONG
+//                                ).show()
+
+                                if (addresses.size > 0) {
+                                    var direccion: String = addresses.get(0).getAddressLine(0)
+                                    val city: String = addresses.get(0).getLocality()
+                                    //val country: String = addresses.get(0).getCountryName()
+
+                                    tvCiudad.setText(city)
+                                } else {
+                                    Toast.makeText(
+                                        requireContext(),
+                                        "No hay conexión",
+                                        Toast.LENGTH_LONG
+                                    ).show()
+                                }
+                            }
+                        }
+                    })
+
+//                val localGpsLocation = locationManager.getLastKnownLocation(LocationManager.GPS_PROVIDER)
+//                if (localGpsLocation != null)
+//                    locationGps = localGpsLocation
+            }
+            else{
+                Toast.makeText(requireContext(), "Enciende la ubicación", Toast.LENGTH_LONG)
             }
         }else{
-            RequestPermission()
-        }
-    }
-
-    fun NewLocationData()
-    {
-        var locationRequest =  LocationRequest()
-        locationRequest.priority = LocationRequest.PRIORITY_HIGH_ACCURACY
-        locationRequest.interval = 0
-        locationRequest.fastestInterval = 0
-        locationRequest.numUpdates = 1
-        fusedLocationProviderClient = LocationServices.getFusedLocationProviderClient(requireContext())
-
-
-        if (ActivityCompat.checkSelfPermission(requireContext(),Manifest.permission.ACCESS_FINE_LOCATION)
-            != PackageManager.PERMISSION_GRANTED && ActivityCompat.checkSelfPermission(requireContext(),Manifest.permission.ACCESS_COARSE_LOCATION
-            ) != PackageManager.PERMISSION_GRANTED
-        ) {
-            // TODO: Consider calling
-            //    ActivityCompat#requestPermissions
-            // here to request the missing permissions, and then overriding
-            //   public void onRequestPermissionsResult(int requestCode, String[] permissions,
-            //                                          int[] grantResults)
-            // to handle the case where the user grants the permission. See the documentation
-            // for ActivityCompat#requestPermissions for more details.
-            return
-        }
-        fusedLocationProviderClient!!.requestLocationUpdates(locationRequest,locationCallback,Looper.myLooper())
-    }
-
-
-    private val locationCallback = object : LocationCallback(){
-        override fun onLocationResult(locationResult: LocationResult) {
-            var lastLocation: Location = locationResult.lastLocation
-            Log.d("Debug:","your last last location: "+ lastLocation.longitude.toString())
-            longitud.text = lastLocation.longitude.toString()
-            latitud.text = lastLocation.latitude.toString() // getCityName(lastLocation.latitude,lastLocation.longitude)
-        }
-    }
-
-    private fun getCityName(lat: Double,long: Double):String{
-        var cityName:String = ""
-        var countryName = ""
-        var geoCoder = Geocoder(requireContext(), Locale.getDefault())
-        var Adress = geoCoder.getFromLocation(lat,long,3)
-
-        cityName = Adress.get(0).locality
-        countryName = Adress.get(0).countryName
-        Log.d("Debug:","Your City: " + cityName + " ; your Country " + countryName)
-        return cityName
-    }
-
-
-    override fun onRequestPermissionsResult(
-        requestCode: Int,
-        permissions: Array<out String>,
-        grantResults: IntArray)
-    {
-        if(requestCode == 1010){
-            if(grantResults.isNotEmpty() && grantResults[0] == PackageManager.PERMISSION_GRANTED){
-                Log.d("Debug:","You have the Permission")
-            }
+            Toast.makeText(requireContext(), "No hay conexión a internet", Toast.LENGTH_LONG)
         }
     }
 
@@ -256,4 +312,7 @@ class LatitudLongitudFragment : Fragment() {
             }
     }
 }
+
+
+
 
