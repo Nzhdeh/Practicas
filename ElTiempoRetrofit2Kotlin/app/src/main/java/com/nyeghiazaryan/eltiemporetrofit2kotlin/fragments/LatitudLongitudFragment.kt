@@ -6,6 +6,7 @@ import android.content.Context
 import android.content.pm.PackageManager
 import android.location.*
 import android.os.Bundle
+import android.util.Log
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
@@ -16,11 +17,9 @@ import androidx.core.app.ActivityCompat
 import androidx.fragment.app.Fragment
 import com.nyeghiazaryan.eltiemporetrofit2kotlin.R
 import com.nyeghiazaryan.eltiemporetrofit2kotlin.adaptadores.AdaptadorListadoProvincias
-import com.nyeghiazaryan.eltiemporetrofit2kotlin.clases.Municipio
-import com.nyeghiazaryan.eltiemporetrofit2kotlin.clases.MunicipioItem
-import com.nyeghiazaryan.eltiemporetrofit2kotlin.clases.Provincia
-import com.nyeghiazaryan.eltiemporetrofit2kotlin.clases.ProvinciaX
+import com.nyeghiazaryan.eltiemporetrofit2kotlin.clases.*
 import com.nyeghiazaryan.eltiemporetrofit2kotlin.interfaces.ImplTemperaturaAPI
+import kotlinx.android.synthetic.main.fragment_latitud_longitud.*
 import retrofit2.Call
 import retrofit2.Callback
 import retrofit2.Response
@@ -56,11 +55,11 @@ class LatitudLongitudFragment : Fragment()
     private lateinit var temperaturaMaxima: TextView
     private lateinit var temperaturaMinima: TextView
     private lateinit var tvCiudad: TextView
-    private lateinit var lvListadoTemperaturas: ListView
+    private var lvListadoTemperaturas: ListView? = null
     private lateinit var geocoder: Geocoder
 
-    private lateinit var listadoMunicipios: Municipio
-    private lateinit var listadoProvincias: List<ProvinciaX>
+    private var listadoMunicipios: Municipio ? = null
+    private var listadoProvincias: List<ProvinciaX>? = null
 
     lateinit var adapter : AdaptadorListadoProvincias
 
@@ -86,102 +85,128 @@ class LatitudLongitudFragment : Fragment()
         tvCiudad = view.findViewById(R.id.tvCiudad)
         lvListadoTemperaturas = view.findViewById(R.id.lvListadoTemperaturas)
 
-        getLocation()
-
-//        obtenerListadoProvincias()
-        obtenerListadoMunicipios()
-//
-//        if (listadoMunicipios!= null)
-//        {
-//            obtenerListadoTemperaturas()
-//        }
-
-
-        return view
-    }
-
-//    private fun obtenerListadoTemperaturas()
-//    {
-//        retrofit = Retrofit.Builder()
-//            .baseUrl("https://www.el-tiempo.net/api/json/v2/")
-//            .addConverterFactory(GsonConverterFactory.create())
-//            .build()
-//
-//        val service = retrofit.create<ImplTemperaturaAPI>(ImplTemperaturaAPI::class.java)
-//
-//        service.getProvincias(obtenerCodigoProvinciaPorPorMunicipio()).enqueue(object : Callback<Provincia>
-//        {
-//            override fun onResponse(call: Call<Provincia>, response: Response<Provincia>)
-//            {
-//                if (response.isSuccessful)
-//                {
-//                    val temperaturas = response.body()
-//                }
-//            }
-//
-//            override fun onFailure(call: Call<Provincia>, t: Throwable)
-//            {
-//                Toast.makeText(requireContext(), "error", Toast.LENGTH_LONG).show()
-//            }
-//
-//        })
-//    }
-
-//    private fun obtenerCodigoProvinciaPorPorMunicipio(): String
-//    {
-//        var idProvincia = "0"
-//
-//        for (item in listadoMunicipios)
-//        {
-//            if(item.nOMBRE.equals(tvCiudad.text.toString(), true))
-//            {
-//                idProvincia = item.cODPROV
-//            }
-//        }
-//
-//        return idProvincia
-//    }
-
-//    private fun obtenerListadoProvincias()
-//    {
-//        retrofit = Retrofit.Builder()
-//            .baseUrl("https://www.el-tiempo.net/api/json/v2/")
-//            .addConverterFactory(GsonConverterFactory.create())
-//            .build()
-//
-//        val service = retrofit.create(ImplTemperaturaAPI::class.java)
-//
-//        service.getProvincias().enqueue(object : Callback<Provincia>
-//        {
-//            override fun onResponse(call: Call<Provincia>, response: Response<Provincia>)
-//            {
-//                if (response.isSuccessful)
-//                {
-//                    val provincias = response.body()
-//
-////                    if (provincias != null) {
-////                        listadoProvincias = provincias.provincias
-////
-////                        adapter = AdaptadorListadoProvincias(requireContext(), listadoProvincias)
-////                        lvListadoProvincias.setAdapter(adapter)
-////                    }
-//                }
-//            }
-//
-//            override fun onFailure(call: Call<Provincia>, t: Throwable)
-//            {
-//                Toast.makeText(requireContext(), "error", Toast.LENGTH_LONG).show()
-//            }
-//        })
-//    }
-
-    private fun obtenerListadoMunicipios()
-    {
         retrofit = Retrofit.Builder()
             .baseUrl("https://www.el-tiempo.net/api/json/v2/")
             .addConverterFactory(GsonConverterFactory.create())
             .build()
 
+        getLocation()
+
+        obtenerListadoProvincias()
+        obtenerListadoMunicipios()
+
+        //obtenerListadoTemperaturas()
+
+        return view
+    }
+
+    /**
+     * obtengo el listado de las temperaturas de la localidad en el que se encuentra el móvil
+     * */
+    private fun obtenerListadoTemperaturas()
+    {
+        val service = retrofit.create<ImplTemperaturaAPI>(ImplTemperaturaAPI::class.java)
+
+        var idProvicia = obtenerCodigoProvinciaPorPorMunicipio()
+
+        service.getProvincias(idProvicia).enqueue(object : Callback<Provincia>
+        {
+            override fun onResponse(call: Call<Provincia>, response: Response<Provincia>)
+            {
+                if (response.isSuccessful)
+                {
+                    val provincia = response.body() as Temperaturas
+
+                    if (provincia!=null)
+                    {
+                        var i:Int = 0
+                        var encontrado:Boolean =  false
+
+                        while(i < provincia.ciudades.size && encontrado == false)
+                        {
+                            if (provincia.ciudades[i].name.equals(tvCiudad.text.toString(),true))
+                            {
+                                tvMaxTemp.text = provincia.ciudades[i].temperatures.max.toString()
+                                tvMinTemp.text = provincia.ciudades[i].temperatures.min.toString()
+                                encontrado=true
+                            }
+                            i++
+                        }
+                    }
+                }
+            }
+
+            override fun onFailure(call: Call<Provincia>, t: Throwable)
+            {
+                Toast.makeText(requireContext(), "error", Toast.LENGTH_LONG).show()
+            }
+
+        })
+    }
+
+    /**
+     * obtengo el código de la provincia según la ubicación del movíl
+     * */
+    private fun obtenerCodigoProvinciaPorPorMunicipio(): String
+    {
+        var idProvincia = " "
+
+        if (listadoMunicipios!=null)
+        {
+            var i = 0
+            var encontrado = false
+            while (i< listadoMunicipios!!.size && encontrado==false)
+            {
+                if(listadoMunicipios!![i].nOMBRE.equals(tvCiudad.text.toString(), true))
+                {
+                    idProvincia = listadoMunicipios!![i].cODPROV
+                    encontrado = true
+                }
+            }
+        }
+
+
+        return idProvincia
+    }
+
+
+    /**
+     * obtengo el listado de todos las provincias
+     * */
+    private fun obtenerListadoProvincias()
+    {
+        val service = retrofit.create(ImplTemperaturaAPI::class.java)
+
+        service.getProvincias().enqueue(object : Callback<Provincia>
+        {
+            override fun onResponse(call: Call<Provincia>, response: Response<Provincia>)
+            {
+                if (response.isSuccessful)
+                {
+                    val provincias = response.body()
+
+//                    if (provincias != null) {
+//                        listadoProvincias = provincias.provincias
+//
+//                        adapter = AdaptadorListadoProvincias(requireContext(), listadoProvincias)
+//                        lvListadoProvincias.setAdapter(adapter)
+//                    }
+                }
+            }
+
+            override fun onFailure(call: Call<Provincia>, t: Throwable)
+            {
+                Toast.makeText(requireContext(), "error", Toast.LENGTH_LONG).show()
+            }
+        })
+    }
+
+    /**
+     *
+     * obtengo el listado de todos los municipios
+     * */
+    private fun obtenerListadoMunicipios()//el error es que tarda mucho en responder y la aplicación sigue ejecutandose
+    {
         val service = retrofit.create(ImplTemperaturaAPI::class.java)
 
         service.getMunicipios().enqueue(object : Callback<Municipio>
@@ -198,13 +223,17 @@ class LatitudLongitudFragment : Fragment()
                 }
             }
 
-            override fun onFailure(call: Call<Municipio>, t: Throwable) {
+            override fun onFailure(call: Call<Municipio>, t: Throwable)
+            {
                 Toast.makeText(requireContext(), "Error", Toast.LENGTH_LONG).show()
             }
         })
+        Toast.makeText(requireContext(),"sdgdsfgdhgh",Toast.LENGTH_LONG).show()
     }
 
-
+    /**
+     * obtendo el nombre de la localidad por las coordenadas
+     * */
     private fun getLocation()
     {
         locationManager = context?.getSystemService(Context.LOCATION_SERVICE) as LocationManager
