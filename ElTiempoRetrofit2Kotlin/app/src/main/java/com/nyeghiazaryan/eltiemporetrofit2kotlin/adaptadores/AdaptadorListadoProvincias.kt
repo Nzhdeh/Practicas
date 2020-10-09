@@ -7,12 +7,14 @@ import android.view.ViewGroup
 import android.widget.BaseAdapter
 import android.widget.TextView
 import com.nyeghiazaryan.eltiemporetrofit2kotlin.R
+import com.nyeghiazaryan.eltiemporetrofit2kotlin.clases.Ciudade
 import com.nyeghiazaryan.eltiemporetrofit2kotlin.clases.Provincia
 import com.nyeghiazaryan.eltiemporetrofit2kotlin.clases.ProvinciaX
+import com.nyeghiazaryan.eltiemporetrofit2kotlin.clases.Temperaturas
 import com.nyeghiazaryan.eltiemporetrofit2kotlin.viewholders.ViewHolderProvincia
 import com.nyeghiazaryan.eltiemporetrofit2kotlin.viewholders.ViewHolderTemperaturas
 
-class AdaptadorListadoProvincias(private var contexto: Context, private var lista:List<ProvinciaX>): BaseAdapter()
+class AdaptadorListadoProvincias(private var contexto: Context, private var lista: List<Ciudade>): BaseAdapter()
 {
     override fun getCount(): Int
     {
@@ -32,29 +34,37 @@ class AdaptadorListadoProvincias(private var contexto: Context, private var list
     override fun getView(p0: Int, p1: View?, p2: ViewGroup?): View
     {
         var vista = p1
-        var holder: ViewHolderProvincia
+        var holder: ViewHolderTemperaturas
 
-        var nombreProvincia: TextView
-        var codigoProvincia: TextView
+        var diaSemana: TextView
+        var nombreCiudad: TextView
+        var temperaturaMaxima: TextView
+        var temperaturaMinima: TextView
+
+        var dia = "Miercoles"
 
         if(vista == null)
         {
             val layout = LayoutInflater.from(contexto)
             vista = layout.inflate(R.layout.item_listado_provincia,null)
 
-            nombreProvincia = vista!!.findViewById(R.id.tvItemNombreProvincia)
-            codigoProvincia = vista!!.findViewById(R.id.tvItemCodigoProvincia)
+            //diaSemana = vista!!.findViewById(R.id.tvItemDiaSemana)
+            nombreCiudad = vista!!.findViewById(R.id.tvItemCiudad)
+            temperaturaMaxima = vista!!.findViewById(R.id.tvItemTempMax)
+            temperaturaMinima = vista!!.findViewById(R.id.tvItemTempMin)
 
-            holder = ViewHolderProvincia(nombreProvincia = nombreProvincia, codigoProvincia = codigoProvincia)
+            holder = ViewHolderTemperaturas(nombreCiudad = nombreCiudad, temperaturaMaxima = temperaturaMaxima, temperaturaMinima = temperaturaMinima)
             vista!!.setTag(holder)
         }
         else
         {
-            holder = vista.tag as ViewHolderProvincia
+            holder = vista.tag as ViewHolderTemperaturas
         }
 
-        holder.getCodigoProvincia().setText(lista[p0].cODPROV)
-        holder.getNombreProvincia().setText(lista[p0].nOMBREPROVINCIA)
+        //holder.getDiaSemana().setText(dia)
+        holder.getNombreCiudad().setText(lista[p0].name)
+        holder.getTemperaturaMaxima().setText(lista[p0].temperatures.max)
+        holder.getTemperaturaMinima().setText(lista[p0].temperatures.min)
 
 
         return vista!!

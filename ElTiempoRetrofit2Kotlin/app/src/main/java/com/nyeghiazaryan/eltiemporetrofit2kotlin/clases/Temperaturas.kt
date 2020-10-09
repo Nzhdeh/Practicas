@@ -71,7 +71,7 @@ data class StateSky(
 
 data class Temperatures(
     @SerializedName("max")
-    val max: String,
+    var max: String,
     @SerializedName("min")
-    val min: String
+    var min: String
 )

@@ -2,12 +2,12 @@ package com.nyeghiazaryan.eltiemporetrofit2kotlin.viewholders
 
 import android.widget.TextView
 
-class ViewHolderTemperaturas(private var diaSemana: TextView, private var nombreCiudad: TextView, private var temperaturaMaxima: TextView, private var temperaturaMinima: TextView)
+class ViewHolderTemperaturas(/*private var diaSemana: TextView,*/ private var nombreCiudad: TextView, private var temperaturaMaxima: TextView, private var temperaturaMinima: TextView)
 {
-    fun getDiaSemana(): TextView
-    {
-        return diaSemana
-    }
+//    fun getDiaSemana(): TextView
+//    {
+//        return diaSemana
+//    }
 
     fun getNombreCiudad(): TextView
     {

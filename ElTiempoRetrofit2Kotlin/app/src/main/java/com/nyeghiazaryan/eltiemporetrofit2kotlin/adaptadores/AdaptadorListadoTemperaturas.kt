@@ -7,10 +7,13 @@ import android.view.ViewGroup
 import android.widget.BaseAdapter
 import android.widget.TextView
 import com.nyeghiazaryan.eltiemporetrofit2kotlin.R
+import com.nyeghiazaryan.eltiemporetrofit2kotlin.clases.Ciudade
 import com.nyeghiazaryan.eltiemporetrofit2kotlin.clases.TemperaturaDTO
+import com.nyeghiazaryan.eltiemporetrofit2kotlin.clases.Temperaturas
+import com.nyeghiazaryan.eltiemporetrofit2kotlin.clases.Temperatures
 import com.nyeghiazaryan.eltiemporetrofit2kotlin.viewholders.ViewHolderTemperaturas
 
-class AdaptadorListadoTemperaturas(private var contexto: Context, private var lista:List<TemperaturaDTO>): BaseAdapter() {
+class AdaptadorListadoTemperaturas(private var contexto: Context, private var lista:List<Ciudade>,private var oTemp: ArrayList<Temperatures?>?): BaseAdapter() {
     override fun getCount(): Int
     {
         return lista.count()
@@ -40,12 +43,12 @@ class AdaptadorListadoTemperaturas(private var contexto: Context, private var li
             val layout = LayoutInflater.from(contexto)
             vista = layout.inflate(R.layout.item_listado_temperaturas,null)
 
-            diaSemana = vista!!.findViewById(R.id.tvItemDiaSemana)
+            //diaSemana = vista!!.findViewById(R.id.tvItemDiaSemana)
             nombreCiudad = vista!!.findViewById(R.id.tvItemCiudad)
             temperaturaMaxima = vista!!.findViewById(R.id.tvItemTempMax)
             temperaturaMinima = vista!!.findViewById(R.id.tvItemTempMin)
 
-            holder = ViewHolderTemperaturas(diaSemana = diaSemana, nombreCiudad = nombreCiudad, temperaturaMaxima = temperaturaMaxima, temperaturaMinima = temperaturaMinima)
+            holder = ViewHolderTemperaturas( nombreCiudad = nombreCiudad, temperaturaMaxima = temperaturaMaxima, temperaturaMinima = temperaturaMinima)
             vista!!.setTag(holder)
         }
         else
@@ -53,10 +56,10 @@ class AdaptadorListadoTemperaturas(private var contexto: Context, private var li
             holder = vista.tag as ViewHolderTemperaturas
         }
 
-        holder.getDiaSemana().setText(lista[p0].getDiaSemana())
-        holder.getNombreCiudad().setText(lista[p0].getNombreCiudad())
-        holder.getTemperaturaMaxima().setText(lista[p0].getTemperaturaMaxima())
-        holder.getTemperaturaMinima().setText(lista[p0].getTemperaturaMinima())
+        //holder.getDiaSemana().setText(lista[p0].getDiaSemana())
+        holder.getNombreCiudad().setText(lista[p0].name)
+        holder.getTemperaturaMaxima().setText(oTemp?.get(p0)?.max)
+        holder.getTemperaturaMinima().setText(oTemp?.get(p0)?.min)
 
 
         return vista!!

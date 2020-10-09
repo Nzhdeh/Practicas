@@ -6,7 +6,6 @@ import android.content.Context
 import android.content.pm.PackageManager
 import android.location.*
 import android.os.Bundle
-import android.util.Log
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
@@ -17,6 +16,7 @@ import androidx.core.app.ActivityCompat
 import androidx.fragment.app.Fragment
 import com.nyeghiazaryan.eltiemporetrofit2kotlin.R
 import com.nyeghiazaryan.eltiemporetrofit2kotlin.adaptadores.AdaptadorListadoProvincias
+import com.nyeghiazaryan.eltiemporetrofit2kotlin.adaptadores.AdaptadorListadoTemperaturas
 import com.nyeghiazaryan.eltiemporetrofit2kotlin.clases.*
 import com.nyeghiazaryan.eltiemporetrofit2kotlin.interfaces.ImplTemperaturaAPI
 import kotlinx.android.synthetic.main.fragment_latitud_longitud.*
@@ -61,7 +61,7 @@ class LatitudLongitudFragment : Fragment()
     private var listadoMunicipios: Municipio ? = null
     private var listadoProvincias: List<ProvinciaX>? = null
 
-    lateinit var adapter : AdaptadorListadoProvincias
+    lateinit var adapter : AdaptadorListadoTemperaturas
 
 
     override fun onCreate(savedInstanceState: Bundle?)
@@ -95,8 +95,6 @@ class LatitudLongitudFragment : Fragment()
         obtenerListadoProvincias()
         obtenerListadoMunicipios()
 
-        //obtenerListadoTemperaturas()
-
         return view
     }
 
@@ -107,63 +105,88 @@ class LatitudLongitudFragment : Fragment()
     {
         val service = retrofit.create<ImplTemperaturaAPI>(ImplTemperaturaAPI::class.java)
 
-        var idProvicia = obtenerCodigoProvinciaPorPorMunicipio()
+        var idProvicia = ""
+        //doAsync {
+            idProvicia = obtenerCodigoProvinciaPorMunicipio()
 
-        service.getProvincias(idProvicia).enqueue(object : Callback<Provincia>
-        {
-            override fun onResponse(call: Call<Provincia>, response: Response<Provincia>)
-            {
-                if (response.isSuccessful)
-                {
-                    val provincia = response.body() as Temperaturas
+            //uiThread {
+                service.getProvincias(idProvicia).enqueue(object : Callback<Temperaturas> {
+                    override fun onResponse(call: Call<Temperaturas>, response: Response<Temperaturas>) {
+                        if (response.isSuccessful) {
+                            val temperaturas = response.body() as Temperaturas
 
-                    if (provincia!=null)
-                    {
-                        var i:Int = 0
-                        var encontrado:Boolean =  false
+                            if (temperaturas != null) {
+                                var i: Int = 0
+                                var encontrado: Boolean = false
 
-                        while(i < provincia.ciudades.size && encontrado == false)
-                        {
-                            if (provincia.ciudades[i].name.equals(tvCiudad.text.toString(),true))
-                            {
-                                tvMaxTemp.text = provincia.ciudades[i].temperatures.max.toString()
-                                tvMinTemp.text = provincia.ciudades[i].temperatures.min.toString()
-                                encontrado=true
+                                while (i < temperaturas.ciudades.size && encontrado == false) {
+                                    if (temperaturas.ciudades[i].name.equals(
+                                            tvCiudad.text.toString(),
+                                            true
+                                        )
+                                    ) {
+                                        tvMaxTemp.text =
+                                            temperaturas.ciudades[i].temperatures.max
+                                        tvMinTemp.text =
+                                            temperaturas.ciudades[i].temperatures.min
+                                        encontrado = true
+                                    }
+                                    i++
+                                }
+
+                                var listadoTemperaturas: ArrayList<Temperatures?>? =  null
+                                var oTemp: Temperatures? = null
+                                while (i < temperaturas.ciudades.size && encontrado == false) {
+                                    if (temperaturas.ciudades[i].name.equals(
+                                            tvCiudad.text.toString(),
+                                            true
+                                        )
+                                    ) {
+                                        oTemp = null
+                                        oTemp?.max = temperaturas.ciudades[i].temperatures.max
+                                        oTemp?.min = temperaturas.ciudades[i].temperatures.min
+                                        listadoTemperaturas?.add(oTemp)
+                                    }
+                                    i++
+                                }
+                                adapter = AdaptadorListadoTemperaturas(requireContext(), temperaturas.ciudades,listadoTemperaturas)
+                                lvListadoTemperaturas?.setAdapter(adapter)
                             }
-                            i++
                         }
                     }
-                }
-            }
 
-            override fun onFailure(call: Call<Provincia>, t: Throwable)
-            {
-                Toast.makeText(requireContext(), "error", Toast.LENGTH_LONG).show()
-            }
+                    override fun onFailure(call: Call<Temperaturas>, t: Throwable) {
+                        Toast.makeText(requireContext(), "error", Toast.LENGTH_LONG).show()
+                    }
 
-        })
+                })
+            //}
+        //}
     }
 
     /**
      * obtengo el código de la provincia según la ubicación del movíl
      * */
-    private fun obtenerCodigoProvinciaPorPorMunicipio(): String
+    private fun obtenerCodigoProvinciaPorMunicipio(): String
     {
         var idProvincia = " "
 
-        if (listadoMunicipios!=null)
-        {
-            var i = 0
-            var encontrado = false
-            while (i< listadoMunicipios!!.size && encontrado==false)
+        //doAsync {
+            if (listadoMunicipios!=null)
             {
-                if(listadoMunicipios!![i].nOMBRE.equals(tvCiudad.text.toString(), true))
+                var i = 0
+                var encontrado = false
+                while (i< listadoMunicipios!!.size && encontrado==false)
                 {
-                    idProvincia = listadoMunicipios!![i].cODPROV
-                    encontrado = true
+                    if(listadoMunicipios!![i].nOMBRE.equals(tvCiudad.text.toString(), true))
+                    {
+                        idProvincia = listadoMunicipios!![i].cODPROV
+                        encontrado = true
+                    }
+                    i++
                 }
             }
-        }
+        //}
 
 
         return idProvincia
@@ -177,12 +200,9 @@ class LatitudLongitudFragment : Fragment()
     {
         val service = retrofit.create(ImplTemperaturaAPI::class.java)
 
-        service.getProvincias().enqueue(object : Callback<Provincia>
-        {
-            override fun onResponse(call: Call<Provincia>, response: Response<Provincia>)
-            {
-                if (response.isSuccessful)
-                {
+        service.getProvincias().enqueue(object : Callback<Provincia> {
+            override fun onResponse(call: Call<Provincia>, response: Response<Provincia>) {
+                if (response.isSuccessful) {
                     val provincias = response.body()
 
 //                    if (provincias != null) {
@@ -194,8 +214,7 @@ class LatitudLongitudFragment : Fragment()
                 }
             }
 
-            override fun onFailure(call: Call<Provincia>, t: Throwable)
-            {
+            override fun onFailure(call: Call<Provincia>, t: Throwable) {
                 Toast.makeText(requireContext(), "error", Toast.LENGTH_LONG).show()
             }
         })
@@ -209,26 +228,21 @@ class LatitudLongitudFragment : Fragment()
     {
         val service = retrofit.create(ImplTemperaturaAPI::class.java)
 
-        service.getMunicipios().enqueue(object : Callback<Municipio>
-        {
-            override fun onResponse(call: Call<Municipio>, response: Response<Municipio>)
-            {
-                if (response.isSuccessful)
-                {
+        service.getMunicipios().enqueue(object : Callback<Municipio> {
+            override fun onResponse(call: Call<Municipio>, response: Response<Municipio>) {
+                if (response.isSuccessful) {
                     listadoMunicipios = response.body()!!
-                }
-                else
-                {
+                    obtenerListadoTemperaturas()
+                } else {
                     Toast.makeText(requireContext(), "response error", Toast.LENGTH_LONG).show()
                 }
             }
 
-            override fun onFailure(call: Call<Municipio>, t: Throwable)
-            {
+            override fun onFailure(call: Call<Municipio>, t: Throwable) {
                 Toast.makeText(requireContext(), "Error", Toast.LENGTH_LONG).show()
             }
         })
-        Toast.makeText(requireContext(),"sdgdsfgdhgh",Toast.LENGTH_LONG).show()
+        //Toast.makeText(requireContext(), "sdgdsfgdhgh", Toast.LENGTH_LONG).show()
     }
 
     /**
@@ -264,8 +278,7 @@ class LatitudLongitudFragment : Fragment()
                     1000,
                     1F,
                     object : LocationListener {
-                        override fun onLocationChanged(location: Location)
-                        {
+                        override fun onLocationChanged(location: Location) {
                             if (location != null) {
                                 locationGps = location
 
